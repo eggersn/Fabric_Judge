@@ -9,29 +9,51 @@ import (
 	kf "github.com/hyperledger/fabric_judge/protos/kafka"
 )
 
-// ValidateMetadata checks the merkle proof and signature, in case the block contains a TTC message
-func ValidateMetadata(kafkaMetadata *kf.KafkaMetadata, pkPath string, lastBlock bool) error {
-	if kafkaMetadata.ReceivedTTCMessage {
-		proof := GetProofFromBytes(kafkaMetadata.KafkaPayload.KafkaMerkleProofHeader)
-
-		//Verify Merkle Proof
-		if !proof.VerifyProof(kafkaMetadata.KafkaPayload.ConsumerMessageBytes) {
-			if !lastBlock {
-				return fmt.Errorf("Peer should not have accepted faulty block (merkle proof of metadata is invalid). Furthermore, the orderer should not have forwarded this block in the first case")
-			} else {
-				return fmt.Errorf("Orderer forwarded faulty block (merkle proof of metadata is invalid)")
-			}
-		}
-
-		//Verify Signature
-		if proof.VerifySignatureWithPath(kafkaMetadata.KafkaPayload.KafkaSignatureHeader, pkPath) != nil {
-			if !lastBlock {
-				return fmt.Errorf("Peer should not have accepted faulty block (metadata signature is invalid). Furthermore, the orderer should not have forwarded this block in the first case")
-			} else {
-				return fmt.Errorf("Orderer forwarded faulty block (metadata signature is invalid)")
+// ValidateConnectOrTTCMessage checks the merkle proof and signature, in case the block contains a TTC message
+func ValidateConnectOrTTCMessage(kafkaMetadata *kf.KafkaMetadata, pkPath string, lastBlock bool) error {
+	if len(kafkaMetadata.ConnectOrTTCPayload) > 0 {
+		for _, payload := range kafkaMetadata.ConnectOrTTCPayload {
+			err := validatePayload(payload, pkPath, lastBlock)
+			if err != nil {
+				return err
 			}
 		}
 	}
+	return nil
+}
+
+// ValidateTTCMessage checks the merkle proof and signature, in case the block contains a TTC message
+func ValidateTTCMessage(kafkaMetadata *kf.KafkaMetadata, pkPath string, lastBlock bool) error {
+	if kafkaMetadata.TTCPayload != nil {
+		err := validatePayload(kafkaMetadata.TTCPayload, pkPath, lastBlock)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validatePayload(payload *kf.KafkaPayload, pkPath string, lastBlock bool) error {
+	proof := GetProofFromBytes(payload.KafkaMerkleProofHeader)
+
+	//Verify Merkle Proof
+	if !proof.VerifyProof(payload.ConsumerMessageBytes) {
+		if !lastBlock {
+			return fmt.Errorf("Peer should not have accepted faulty block (merkle proof of metadata is invalid). Furthermore, the orderer should not have forwarded this block in the first case")
+		} else {
+			return fmt.Errorf("Orderer forwarded faulty block (merkle proof of metadata is invalid)")
+		}
+	}
+
+	//Verify Signature
+	if proof.VerifySignatureWithPath(payload.KafkaSignatureHeader, pkPath) != nil {
+		if !lastBlock {
+			return fmt.Errorf("Peer should not have accepted faulty block (metadata signature is invalid). Furthermore, the orderer should not have forwarded this block in the first case")
+		} else {
+			return fmt.Errorf("Orderer forwarded faulty block (metadata signature is invalid)")
+		}
+	}
+
 	return nil
 }
 
@@ -111,10 +133,15 @@ func GetKafkaSeqNrFromEnvelope(env *cb.Envelope) int64 {
 	return env.KafkaPayload.KafkaOffset
 }
 
-// GetKafkaSeqNrFromMetadata retrieves the sequence number of the given ttc message
-func GetKafkaSeqNrFromMetadata(kafkaMetadata *kf.KafkaMetadata) int64 {
+// GetTTCKafkaSeqNrFromMetadata retrieves the sequence number of the given ttc message
+func GetTTCKafkaSeqNrFromMetadata(kafkaMetadata *kf.KafkaMetadata) int64 {
 	if kafkaMetadata.ReceivedTTCMessage {
-		return int64(binary.BigEndian.Uint64(kafkaMetadata.KafkaPayload.ConsumerMessageBytes[0:8]))
+		return int64(binary.BigEndian.Uint64(kafkaMetadata.TTCPayload.ConsumerMessageBytes[0:8]))
 	}
 	return -1
+}
+
+// GetConnectOrTTCKafkaSeqNrFromMetadata retrieves the sequence number of the given ttc message
+func GetConnectOrTTCKafkaSeqNrFromMetadata(kafkaMetadata *kf.KafkaMetadata, i int) int64 {
+	return int64(binary.BigEndian.Uint64(kafkaMetadata.ConnectOrTTCPayload[i].ConsumerMessageBytes[0:8]))
 }

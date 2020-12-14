@@ -82,9 +82,13 @@ message KafkaMetadata {
 
     bool received_t_t_c_message = 4;
 
-    KafkaPayload kafka_payload = 5;
+    KafkaPayload t_t_c_payload = 5;
 
-    bool is_config_message = 6;
+    bool received_connect_or_t_t_c_message = 6;
+
+    repeated KafkaPayload connect_or_t_t_c_payload = 7;
+
+    bool is_config_message = 8;
 }
 
 message KafkaPayload {

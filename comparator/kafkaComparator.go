@@ -57,8 +57,8 @@ func (comp *KafkaComparator) CompareKafkaMessages() []*verdicts.Verdict {
 	// Here, we already have the minimum block height computed by the python script
 	for i := 0; i < len(comp.ledgerInfo1.Metadata); i++ {
 		if comp.ledgerInfo1.Metadata[i].ReceivedTTCMessage && comp.ledgerInfo2.Metadata[i].ReceivedTTCMessage {
-			hash1 := computeHashOfBytes(comp.ledgerInfo1.Metadata[i].KafkaPayload.ConsumerMessageBytes)
-			hash2 := computeHashOfBytes(comp.ledgerInfo2.Metadata[i].KafkaPayload.ConsumerMessageBytes)
+			hash1 := computeHashOfBytes(comp.ledgerInfo1.Metadata[i].TTCPayload.ConsumerMessageBytes)
+			hash2 := computeHashOfBytes(comp.ledgerInfo2.Metadata[i].TTCPayload.ConsumerMessageBytes)
 			if !reflect.DeepEqual(hash1, hash2) {
 				return []*verdicts.Verdict{verdicts.CreateVerdict("Kafka signed two different ttc-messages with the same sequence number", "Kafka Cluster", 0)}
 			}

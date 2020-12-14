@@ -43,7 +43,11 @@ func (v *Verifier) VerifyKafkaMessages() []*verdicts.Verdict {
 	numberOfBlocks := len(v.Envelopes)
 	var err error
 	for i, metadata := range v.KafkaMetadata {
-		err = ValidateMetadata(metadata, v.pkPath, i == numberOfBlocks)
+		err = ValidateTTCMessage(metadata, v.pkPath, i == numberOfBlocks)
+		if err != nil {
+			return evaluateError(err, i == numberOfBlocks)
+		}
+		err = ValidateConnectOrTTCMessage(metadata, v.pkPath, i == numberOfBlocks)
 		if err != nil {
 			return evaluateError(err, i == numberOfBlocks)
 		}
@@ -118,6 +122,16 @@ func (v *Verifier) verifyKafkaSequence() []*verdicts.Verdict {
 	kafkaSeqNr = 1
 
 	for i := 0; i < len(v.Envelopes); i++ {
+		for j := 0; j < len(v.KafkaMetadata[i].ConnectOrTTCPayload); j++ {
+			seqNr = GetConnectOrTTCKafkaSeqNrFromMetadata(v.KafkaMetadata[i], j)
+			if seqNr != kafkaSeqNr {
+				if i == len(v.Envelopes)-1 {
+					return []*verdicts.Verdict{verdicts.CreateVerdict("Orderer skipped Kafka messages", v.Identity, 1)}
+				}
+				return []*verdicts.Verdict{verdicts.CreateVerdict("Orderer skipped Kafka messages", v.Identity, 1), verdicts.CreateVerdict("Peer accepted invalid block without reporting", v.Identity, 1)}
+			}
+			kafkaSeqNr++
+		}
 		for _, env := range v.Envelopes[i] {
 			seqNr = GetKafkaSeqNrFromEnvelope(env)
 			if seqNr != -1 {
@@ -130,7 +144,7 @@ func (v *Verifier) verifyKafkaSequence() []*verdicts.Verdict {
 				kafkaSeqNr++
 			}
 		}
-		seqNr = GetKafkaSeqNrFromMetadata(v.KafkaMetadata[i])
+		seqNr = GetTTCKafkaSeqNrFromMetadata(v.KafkaMetadata[i])
 		if seqNr != -1 {
 			if seqNr != kafkaSeqNr {
 				if i == len(v.Envelopes)-1 {
