@@ -3,6 +3,7 @@ package judge
 import (
 	"io/ioutil"
 	"log"
+	"strconv"
 
 	proto "github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric_judge/comparator"
@@ -12,12 +13,12 @@ import (
 )
 
 //export VerifyConsistency
-func VerifyConsistency(blockDir1 string, blockDir2 string, identity1 string, identity2 string, kafkaPublicKey string, maxBatchSize int, preferredBlockSize int) {
+func VerifyConsistency(blockDir1 string, blockDir2 string, identity1 string, identity2 string, channelName string, kafkaPublicKey string, maxBatchSize int, preferredBlockSize int) {
 
 	println("Reading and parsing received blocks")
 
-	blocks1 := getBlocksFromDir(blockDir1)
-	blocks2 := getBlocksFromDir(blockDir2)
+	blocks1 := getBlocksFromDir(blockDir1, channelName)
+	blocks2 := getBlocksFromDir(blockDir2, channelName)
 
 	verifier1 := validator.NewVerifier(blocks1, kafkaPublicKey, identity1, maxBatchSize, preferredBlockSize)
 	verifier2 := validator.NewVerifier(blocks2, kafkaPublicKey, identity2, maxBatchSize, preferredBlockSize)
@@ -75,7 +76,7 @@ func evaluateVerdict(verdict []*verdicts.Verdict) {
 	}
 }
 
-func getBlocksFromDir(dir string) []*cb.Block {
+func getBlocksFromDir(dir string, channelName string) []*cb.Block {
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
 		log.Fatal(err)
@@ -83,8 +84,8 @@ func getBlocksFromDir(dir string) []*cb.Block {
 
 	blocks := make([]*cb.Block, len(files))
 
-	for i, file := range files {
-		blocks[i], err = computeBlockFromFile(dir + file.Name())
+	for i := range files {
+		blocks[i], err = computeBlockFromFile(dir + channelName + "_" + strconv.Itoa(i) + ".block")
 		if err != nil {
 			log.Fatal(err)
 		}
