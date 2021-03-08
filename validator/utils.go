@@ -3,6 +3,7 @@ package verifier
 import (
 	"encoding/binary"
 	"fmt"
+	"sort"
 
 	proto "github.com/golang/protobuf/proto"
 	cb "github.com/hyperledger/fabric_judge/protos/common"
@@ -139,6 +140,18 @@ func GetTTCKafkaSeqNrFromMetadata(kafkaMetadata *kf.KafkaMetadata) int64 {
 		return int64(binary.BigEndian.Uint64(kafkaMetadata.TTCPayload.ConsumerMessageBytes[0:8]))
 	}
 	return -1
+}
+
+// GetAllConnectOrTTCKafkaSeqNrFromMetadata retrieves the sequence number of the given ttc message
+func GetAllConnectOrTTCKafkaSeqNrFromMetadata(kafkaMetadata *kf.KafkaMetadata) []int {
+	connectOrTTCOffsets := make([]int, len(kafkaMetadata.ConnectOrTTCPayload))
+
+	for i := 0; i < len(kafkaMetadata.ConnectOrTTCPayload); i++ {
+		connectOrTTCOffsets[i] = int(binary.BigEndian.Uint64(kafkaMetadata.ConnectOrTTCPayload[i].ConsumerMessageBytes[0:8]))
+	}
+
+	sort.Ints(connectOrTTCOffsets)
+	return connectOrTTCOffsets
 }
 
 // GetConnectOrTTCKafkaSeqNrFromMetadata retrieves the sequence number of the given ttc message

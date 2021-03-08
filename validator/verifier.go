@@ -122,24 +122,24 @@ func (v *Verifier) verifyKafkaSequence() []*verdicts.Verdict {
 	kafkaSeqNr = 0
 
 	for i := 0; i < len(v.Envelopes); i++ {
-		for j := 0; j < len(v.KafkaMetadata[i].ConnectOrTTCPayload); j++ {
-			seqNr = GetConnectOrTTCKafkaSeqNrFromMetadata(v.KafkaMetadata[i], j)
-			if seqNr != kafkaSeqNr {
-				if i == len(v.Envelopes)-1 {
-					//return []*verdicts.Verdict{verdicts.CreateVerdict("Orderer skipped Kafka messages", v.Identity, 1)}
-				}
-				//return []*verdicts.Verdict{verdicts.CreateVerdict("Orderer skipped Kafka messages", v.Identity, 1), verdicts.CreateVerdict("Peer accepted invalid block without reporting", v.Identity, 1)}
-			}
-			kafkaSeqNr++
-		}
+		connectOrTTCOffsets := GetAllConnectOrTTCKafkaSeqNrFromMetadata(v.KafkaMetadata[i])
+
 		for _, env := range v.Envelopes[i] {
 			seqNr = GetKafkaSeqNrFromEnvelope(env)
 			if seqNr != -1 {
+				for connectOrTTCOffsets != nil && len(connectOrTTCOffsets) > 0 && kafkaSeqNr == int64(connectOrTTCOffsets[0]) {
+					kafkaSeqNr++
+					if len(connectOrTTCOffsets) == 1 {
+						connectOrTTCOffsets = nil
+					} else {
+						connectOrTTCOffsets = connectOrTTCOffsets[1:]
+					}
+				}
 				if seqNr != kafkaSeqNr {
 					if i == len(v.Envelopes)-1 {
-						//return []*verdicts.Verdict{verdicts.CreateVerdict("Orderer skipped Kafka messages", v.Identity, 1)}
+						return []*verdicts.Verdict{verdicts.CreateVerdict("Orderer skipped Kafka messages", v.Identity, 1)}
 					}
-					//return []*verdicts.Verdict{verdicts.CreateVerdict("Orderer skipped Kafka messages", v.Identity, 1), verdicts.CreateVerdict("Peer accepted invalid block without reporting", v.Identity, 1)}
+					return []*verdicts.Verdict{verdicts.CreateVerdict("Orderer skipped Kafka messages", v.Identity, 1), verdicts.CreateVerdict("Peer accepted invalid block without reporting", v.Identity, 1)}
 				}
 				kafkaSeqNr++
 			}
@@ -148,9 +148,9 @@ func (v *Verifier) verifyKafkaSequence() []*verdicts.Verdict {
 		if seqNr != -1 {
 			if seqNr != kafkaSeqNr {
 				if i == len(v.Envelopes)-1 {
-					//return []*verdicts.Verdict{verdicts.CreateVerdict("Orderer skipped Kafka messages", v.Identity, 1)}
+					return []*verdicts.Verdict{verdicts.CreateVerdict("Orderer skipped Kafka messages", v.Identity, 1)}
 				}
-				//return []*verdicts.Verdict{verdicts.CreateVerdict("Orderer skipped Kafka messages", v.Identity, 1), verdicts.CreateVerdict("Peer accepted invalid block without reporting", v.Identity, 1)}
+				return []*verdicts.Verdict{verdicts.CreateVerdict("Orderer skipped Kafka messages", v.Identity, 1), verdicts.CreateVerdict("Peer accepted invalid block without reporting", v.Identity, 1)}
 			}
 			kafkaSeqNr++
 		}
